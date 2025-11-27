@@ -1,18 +1,27 @@
-use iced::time::{self, Duration, Instant};
 use iced::widget::image;
-use iced::{Color, Element, Event, Length, Task as Command, Theme, event};
+use iced::{Color, Element, Length, Task as Command, Theme};
 use iced_layershell::Application;
 use iced_layershell::reexport::Anchor;
 use iced_layershell::settings::{LayerShellSettings, Settings, StartMode};
 use iced_layershell::to_layer_message;
 
+#[derive(Debug, Clone)]
+pub enum KeyboardEventType {
+    Pressed,
+    Released,
+}
+
+use crate::keyboard::keyboard_event_stream;
+
+mod keyboard;
+
 pub fn main() -> Result<(), iced_layershell::Error> {
     Counter::run(Settings {
         layer_settings: LayerShellSettings {
-            size: Some((0, 40)),
+            size: Some((0, 48)),
             exclusive_zone: -1,
             anchor: Anchor::Top | Anchor::Left | Anchor::Right,
-            margin: (14, 0, 0, 340),
+            margin: (8, 0, 0, 840),
             events_transparent: true,
             start_mode: StartMode::Active,
             ..Default::default()
@@ -21,17 +30,22 @@ pub fn main() -> Result<(), iced_layershell::Error> {
     })
 }
 
+enum ImageState {
+    BothUp,
+    BothDown,
+    LeftDown,
+    RightDown,
+}
+
 struct Counter {
-    image: usize,
-    last_tick: Instant,
+    image: ImageState,
+    last_event: Option<KeyboardEventType>,
 }
 
 #[to_layer_message]
 #[derive(Debug, Clone)]
-#[doc = "Some docs"]
 enum Message {
-    Tick,
-    IcedEvent(Event),
+    KeyPress(KeyboardEventType),
 }
 
 impl Application for Counter {
@@ -43,45 +57,55 @@ impl Application for Counter {
     fn new(_flags: ()) -> (Self, Command<Message>) {
         (
             Self {
-                image: 0,
-                last_tick: Instant::now(),
+                image: ImageState::BothUp,
+                last_event: None,
             },
             Command::none(),
         )
     }
 
     fn namespace(&self) -> String {
-        String::from("bongocat")
+        String::from("cattyper")
     }
 
     fn subscription(&self) -> iced::Subscription<Self::Message> {
-        time::every(std::time::Duration::from_millis(100)).map(|_| Message::Tick)
+        iced::Subscription::run(keyboard_event_stream)
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {
-        let now = Instant::now();
-
-        if now.duration_since(self.last_tick).as_millis() > 170 {
-            self.image = (self.image + 1) % 4;
-            self.last_tick = now;
-        }
-
         match message {
-            Message::IcedEvent(event) => {
-                println!("hello {event:?}");
+            Message::KeyPress(key_type) => {
+                match key_type {
+                    KeyboardEventType::Pressed => {
+                        if let Some(KeyboardEventType::Pressed) = self.last_event {
+                            self.image = ImageState::BothDown;
+                        } else {
+                            self.image = if rand::random() {
+                                ImageState::RightDown
+                            } else {
+                                ImageState::LeftDown
+                            }
+                        }
+                        self.last_event = Some(KeyboardEventType::Pressed);
+                    }
+                    KeyboardEventType::Released => {
+                        self.image = ImageState::BothUp;
+                        self.last_event = Some(KeyboardEventType::Released);
+                    }
+                }
                 Command::none()
             }
-            Message::Tick => Command::none(),
-            _ => unreachable!(),
+            _ => Command::none(),
         }
     }
 
     fn view(&self) -> Element<Message> {
+        use ImageState::*;
         let img = match self.image {
-            0 => image("bongo-cat-both-up.png"),
-            1 => image("bongo-cat-both-down.png"),
-            2 => image("bongo-cat-left-down.png"),
-            _ => image("bongo-cat-right-down.png"),
+            BothUp => image("bongo-cat-both-up.png"),
+            BothDown => image("bongo-cat-both-down.png"),
+            LeftDown => image("bongo-cat-left-down.png"),
+            RightDown => image("bongo-cat-right-down.png"),
         };
         img.width(Length::Fill).height(Length::Fill).into()
     }
