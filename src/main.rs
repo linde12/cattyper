@@ -1,33 +1,16 @@
+use crate::keyboard::keyboard_event_stream;
 use iced::widget::image;
 use iced::{Color, Element, Length, Task as Command, Theme};
 use iced_layershell::Application;
 use iced_layershell::reexport::Anchor;
 use iced_layershell::settings::{LayerShellSettings, Settings, StartMode};
 use iced_layershell::to_layer_message;
+mod keyboard;
 
 #[derive(Debug, Clone)]
 pub enum KeyboardEventType {
     Pressed,
     Released,
-}
-
-use crate::keyboard::keyboard_event_stream;
-
-mod keyboard;
-
-pub fn main() -> Result<(), iced_layershell::Error> {
-    Counter::run(Settings {
-        layer_settings: LayerShellSettings {
-            size: Some((0, 48)),
-            exclusive_zone: -1,
-            anchor: Anchor::Top | Anchor::Left | Anchor::Right,
-            margin: (8, 0, 0, 840),
-            events_transparent: true,
-            start_mode: StartMode::Active,
-            ..Default::default()
-        },
-        ..Default::default()
-    })
 }
 
 enum ImageState {
@@ -40,6 +23,7 @@ enum ImageState {
 struct Counter {
     image: ImageState,
     last_event: Option<KeyboardEventType>,
+    images: Vec<image::Handle>,
 }
 
 #[to_layer_message]
@@ -59,6 +43,20 @@ impl Application for Counter {
             Self {
                 image: ImageState::BothUp,
                 last_event: None,
+                images: vec![
+                    image::Handle::from_bytes(
+                        include_bytes!("../bongo-cat-both-up.png").as_slice(),
+                    ),
+                    image::Handle::from_bytes(
+                        include_bytes!("../bongo-cat-both-down.png").as_slice(),
+                    ),
+                    image::Handle::from_bytes(
+                        include_bytes!("../bongo-cat-left-down.png").as_slice(),
+                    ),
+                    image::Handle::from_bytes(
+                        include_bytes!("../bongo-cat-right-down.png").as_slice(),
+                    ),
+                ],
             },
             Command::none(),
         )
@@ -102,12 +100,12 @@ impl Application for Counter {
     fn view(&self) -> Element<Message> {
         use ImageState::*;
         let img = match self.image {
-            BothUp => image("bongo-cat-both-up.png"),
-            BothDown => image("bongo-cat-both-down.png"),
-            LeftDown => image("bongo-cat-left-down.png"),
-            RightDown => image("bongo-cat-right-down.png"),
+            BothUp => self.images[0].clone(),
+            BothDown => self.images[1].clone(),
+            LeftDown => self.images[2].clone(),
+            RightDown => self.images[3].clone(),
         };
-        img.width(Length::Fill).height(Length::Fill).into()
+        image(img).width(Length::Fill).height(Length::Fill).into()
     }
 
     fn style(&self, theme: &Self::Theme) -> iced_layershell::Appearance {
@@ -117,4 +115,19 @@ impl Application for Counter {
             text_color: theme.palette().text,
         }
     }
+}
+
+pub fn main() -> Result<(), iced_layershell::Error> {
+    Counter::run(Settings {
+        layer_settings: LayerShellSettings {
+            size: Some((0, 48)),
+            exclusive_zone: -1,
+            anchor: Anchor::Top | Anchor::Left | Anchor::Right,
+            margin: (800, 0, 0, 840),
+            events_transparent: true,
+            start_mode: StartMode::Active,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
 }

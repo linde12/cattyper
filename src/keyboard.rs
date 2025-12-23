@@ -1,4 +1,3 @@
-// use evdev to listen whenever any keyboard key is pressed or released
 use evdev::Device;
 use evdev::EventType;
 use futures::SinkExt;
